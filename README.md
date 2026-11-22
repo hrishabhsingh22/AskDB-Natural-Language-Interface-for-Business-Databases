@@ -88,3 +88,4 @@ http://localhost:8501
 
 - `.env`, `venv/`, and `__pycache__/` are ignored by Git.
 - The forecast is a simple linear trend estimate, suitable for demo/analysis but not production-grade demand forecasting.
+
