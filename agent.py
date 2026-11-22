@@ -425,6 +425,10 @@ def generate_sql(question, df=None, csv_path=None, *args, **kwargs):
     if sql and is_safe_sql(sql):
         return sql
 
+    if df is not None and not df.empty:
+        cols = ", ".join(list(df.columns)[:8])
+        return f"SELECT {cols} FROM {TABLE_NAME} LIMIT 25"
+
     return (
         f"SELECT order_id, date, status, category, ship_city, ship_state, qty, amount "
         f"FROM {TABLE_NAME} LIMIT 25"
