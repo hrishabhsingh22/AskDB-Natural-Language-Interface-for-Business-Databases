@@ -4,6 +4,14 @@ import pandas as pd
 import streamlit as st
 
 from agent import explain_result, generate_sql
+import agent
+import inspect
+
+print("DEBUG AGENT FILE:", agent.__file__)
+print("DEBUG GENERATE_SQL SIGNATURE:", inspect.signature(agent.generate_sql))
+
+st.write("DEBUG AGENT FILE:", agent.__file__)
+st.write("DEBUG GENERATE_SQL SIGNATURE:", inspect.signature(agent.generate_sql))
 from data import DEFAULT_DATASET_PATH, get_dataset_path, load_dataset
 from db import run_query
 from forecast import forecast_next_month_sales
