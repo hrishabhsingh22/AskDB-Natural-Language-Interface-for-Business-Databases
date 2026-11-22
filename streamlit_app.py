@@ -419,8 +419,8 @@ def inject_styles():
 
 
 @st.cache_data(show_spinner=False)
-def get_dataset(csv_source):
-    return load_dataset(csv_source=csv_source)
+def get_dataset(csv_path):
+    return load_dataset(csv_path)
 
 
 def render_brand():

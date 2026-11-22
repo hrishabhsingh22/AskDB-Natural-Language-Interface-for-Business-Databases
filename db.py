@@ -4,7 +4,7 @@ from data import build_in_memory_db, load_dataset
 def run_query(sql, csv_path=None, df=None):
     try:
         if df is None:
-            df, _, _ = load_dataset(csv_source=csv_path)
+            df, _, _ = load_dataset(csv_path)
         conn = build_in_memory_db(df)
         cursor = conn.cursor()
         cursor.execute(sql)

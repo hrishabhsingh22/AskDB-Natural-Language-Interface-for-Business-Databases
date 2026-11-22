@@ -340,7 +340,7 @@ def llm_sql(question, csv_path=None, df=None):
         return None
 
     if df is None:
-        df, _, _ = load_dataset(csv_source=csv_path)
+        df, _, _ = load_dataset(csv_path)
     schema_text = get_schema_text(df)
 
     response = client.chat.completions.create(

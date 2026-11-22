@@ -40,8 +40,17 @@ def normalize_column_name(column_name):
     return normalized or "unnamed_column"
 
 
-def load_dataset(csv_source=None, csv_path=None):
-    source = csv_source if csv_source is not None else csv_path
+def load_dataset(csv_path=None, csv_source=None, *args, **kwargs):
+    source = csv_path if csv_path is not None else csv_source
+    if source is None and args:
+        source = args[0]
+    if source is None:
+        source = (
+            kwargs.get("source")
+            or kwargs.get("file")
+            or kwargs.get("buffer")
+            or kwargs.get("file_path")
+        )
     if source is None:
         source = get_dataset_path()
 
@@ -179,10 +188,14 @@ def load_dataset(csv_source=None, csv_path=None):
         df["order_id"] = [f"ORD_{i+1:05d}" for i in range(len(df))]
 
     if "ship_postal_code" in df.columns:
-        df["ship_postal_code"] = (
-            pd.to_numeric(df["ship_postal_code"], errors="coerce")
-            .astype("Int64")
-        )
+        try:
+            df["ship_postal_code"] = (
+                pd.to_numeric(df["ship_postal_code"], errors="coerce")
+                .round()
+                .astype("Int64")
+            )
+        except Exception:
+            df["ship_postal_code"] = df["ship_postal_code"].astype(str)
     else:
         df["ship_postal_code"] = pd.Series([pd.NA] * len(df), dtype="Int64")
 
@@ -202,10 +215,10 @@ def build_in_memory_db(df):
     conn.row_factory = sqlite3.Row
 
     sqlite_df = df.copy()
-    if "date" in sqlite_df.columns:
+    if "date" in sqlite_df.columns and pd.api.types.is_datetime64_any_dtype(sqlite_df["date"]):
         sqlite_df["date"] = sqlite_df["date"].dt.strftime("%Y-%m-%d")
 
-    sqlite_df.to_sql("amazon_sales", conn, if_exists="replace", index=False)
+    sqlite_df.to_sql("amazon_sales", conn, if_exists="replace", index=False, chunksize=10000)
     return conn
 
 
