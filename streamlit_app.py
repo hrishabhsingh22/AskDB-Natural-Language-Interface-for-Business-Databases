@@ -1,8 +1,10 @@
+import os
+
 import pandas as pd
 import streamlit as st
 
 from agent import explain_result, generate_sql
-from data import get_dataset_path, load_dataset
+from data import DEFAULT_DATASET_PATH, get_dataset_path, load_dataset
 from db import run_query
 from forecast import forecast_next_month_sales
 
@@ -417,8 +419,8 @@ def inject_styles():
 
 
 @st.cache_data(show_spinner=False)
-def get_dataset(csv_path):
-    return load_dataset(csv_path=csv_path)
+def get_dataset(csv_source):
+    return load_dataset(csv_source=csv_source)
 
 
 def render_brand():
@@ -433,16 +435,16 @@ def render_brand():
     )
 
 
-def render_metric_cards(dataset_df, forecast):
-    total_sales = float(dataset_df["amount"].sum())
+def render_metric_cards(dataset_df, forecast, dataset_name=None):
+    total_sales = float(dataset_df["amount"].sum()) if "amount" in dataset_df.columns else 0.0
     total_orders = int(len(dataset_df))
-    unique_states = int(dataset_df["ship_state"].dropna().nunique())
+    unique_states = int(dataset_df["ship_state"].dropna().nunique()) if "ship_state" in dataset_df.columns else 0
     delivered_orders = int(
         dataset_df["status"].fillna("").str.contains("Delivered", case=False).sum()
-    )
+    ) if "status" in dataset_df.columns else 0
     forecast_text = (
         "N/A"
-        if forecast["predicted_sales"] is None
+        if forecast.get("predicted_sales") is None
         else f"INR {forecast['predicted_sales']:,.0f}"
     )
 
@@ -473,10 +475,11 @@ def render_metric_cards(dataset_df, forecast):
         """,
         unsafe_allow_html=True,
     )
-    st.caption(f"Dataset loaded from `{get_dataset_path()}`")
+    caption_name = dataset_name or get_dataset_path()
+    st.caption(f"Dataset loaded from `{caption_name}`")
 
 
-def render_home(dataset_df):
+def render_home(dataset_df, dataset_name=None):
     forecast = forecast_next_month_sales(dataset_df)
     st.markdown('<div class="hero-wrap">', unsafe_allow_html=True)
     render_brand()
@@ -555,7 +558,7 @@ def render_home(dataset_df):
             if st.button("Open Dashboard", use_container_width=True):
                 st.info("Use the sidebar and open `Dashboard` to view charts and forecast.")
 
-    render_metric_cards(dataset_df, forecast)
+    render_metric_cards(dataset_df, forecast, dataset_name=dataset_name)
 
     st.markdown(
         """
@@ -640,8 +643,8 @@ def render_ask_dataset(dataset_df, csv_path):
                 st.line_chart(chart_df)
             return
 
-        sql = generate_sql(question, csv_path=csv_path)
-        result = run_query(sql, csv_path=csv_path)
+        sql = generate_sql(question, csv_path=csv_path, df=dataset_df)
+        result = run_query(sql, csv_path=csv_path, df=dataset_df)
 
         st.markdown(
             """
@@ -704,9 +707,9 @@ def render_ask_dataset(dataset_df, csv_path):
         st.write(explain_result(question, sql, result))
 
 
-def render_dashboard(dataset_df):
+def render_dashboard(dataset_df, dataset_name=None):
     forecast = forecast_next_month_sales(dataset_df)
-    render_metric_cards(dataset_df, forecast)
+    render_metric_cards(dataset_df, forecast, dataset_name=dataset_name)
 
     monthly_sales = forecast["history"]
     state_sales = (
@@ -715,21 +718,23 @@ def render_dashboard(dataset_df):
         .sum()
         .sort_values("amount", ascending=False)
         .head(10)
-    )
+    ) if "ship_state" in dataset_df.columns and "amount" in dataset_df.columns else pd.DataFrame(columns=["ship_state", "amount"])
+
     status_counts = (
         dataset_df.groupby("status", as_index=False)
         .size()
         .rename(columns={"size": "order_count"})
         .sort_values("order_count", ascending=False)
         .head(10)
-    )
+    ) if "status" in dataset_df.columns else pd.DataFrame(columns=["status", "order_count"])
+
     category_sales = (
         dataset_df.dropna(subset=["category"])
         .groupby("category", as_index=False)["amount"]
         .sum()
         .sort_values("amount", ascending=False)
         .head(8)
-    )
+    ) if "category" in dataset_df.columns and "amount" in dataset_df.columns else pd.DataFrame(columns=["category", "amount"])
 
     col1, col2 = st.columns(2)
     with col1:
@@ -804,20 +809,67 @@ inject_styles()
 
 st.sidebar.title("AskDB")
 page = st.sidebar.radio("Navigation", ["Home", "Ask Dataset", "Dashboard"])
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("Dataset")
+
+# Streamlit file uploader accepting CSV files
+uploaded_file = st.sidebar.file_uploader(
+    "Upload CSV dataset",
+    type=["csv"],
+    help="Upload your sales CSV dataset directly without specifying an absolute local path.",
+)
+
+# Preserve existing dataset path functionality for local development
 default_path = get_dataset_path()
-csv_path = st.sidebar.text_input("Dataset CSV path", value=default_path)
+local_path_exists = bool(default_path and os.path.exists(default_path))
+
+with st.sidebar.expander("Local CSV Path (Optional)", expanded=(uploaded_file is None and local_path_exists)):
+    csv_path_input = st.text_input(
+        "Local file path",
+        value=default_path if local_path_exists else "",
+        placeholder=f"e.g. {DEFAULT_DATASET_PATH}",
+        help="Optional local path used if no file is uploaded.",
+    )
+
+# Determine the dataset source
+dataset_source = None
+if uploaded_file is not None:
+    dataset_source = uploaded_file
+elif csv_path_input and csv_path_input.strip():
+    dataset_source = csv_path_input.strip()
+
+# If no source is provided at all
+if dataset_source is None:
+    st.sidebar.info("Upload a CSV file or enter a local CSV path to get started.")
+    st.markdown('<div class="hero-wrap">', unsafe_allow_html=True)
+    render_brand()
+    st.info(
+        "👋 **Welcome to AskDB Sales Analytics!**\n\n"
+        "To get started, please **upload a CSV dataset** using the uploader in the sidebar "
+        "or provide a local file path under **Local CSV Path**."
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.stop()
 
 try:
-    dataset_df, resolved_path, _ = get_dataset(csv_path)
+    dataset_df, resolved_path, _ = get_dataset(dataset_source)
     st.sidebar.success(f"Loaded {len(dataset_df):,} rows")
-    st.sidebar.caption(resolved_path)
+    st.sidebar.caption(f"📁 {resolved_path}")
 except Exception as exc:
     st.sidebar.error(f"Could not load dataset: {exc}")
+    st.markdown('<div class="hero-wrap">', unsafe_allow_html=True)
+    render_brand()
+    st.error(
+        f"⚠️ **Could not load dataset**: {exc}\n\n"
+        "Please verify that your CSV file is properly formatted, not empty, and contains sales data."
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
 if page == "Home":
-    render_home(dataset_df)
+    render_home(dataset_df, dataset_name=resolved_path)
 elif page == "Ask Dataset":
-    render_ask_dataset(dataset_df, csv_path)
+    render_ask_dataset(dataset_df, csv_path=resolved_path)
 else:
-    render_dashboard(dataset_df)
+    render_dashboard(dataset_df, dataset_name=resolved_path)

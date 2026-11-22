@@ -335,11 +335,12 @@ LIMIT 100
     return None
 
 
-def llm_sql(question, csv_path=None):
+def llm_sql(question, csv_path=None, df=None):
     if client is None:
         return None
 
-    df, _, _ = load_dataset(csv_path=csv_path)
+    if df is None:
+        df, _, _ = load_dataset(csv_source=csv_path)
     schema_text = get_schema_text(df)
 
     response = client.chat.completions.create(
@@ -370,7 +371,7 @@ def llm_sql(question, csv_path=None):
     return clean_sql(response.choices[0].message.content)
 
 
-def generate_sql(question, csv_path=None):
+def generate_sql(question, csv_path=None, df=None):
     intent = detect_intent(question)
     if intent != "UNKNOWN":
         return rule_sql(intent)
@@ -380,7 +381,7 @@ def generate_sql(question, csv_path=None):
         return heuristic_sql
 
     try:
-        sql = llm_sql(question, csv_path=csv_path)
+        sql = llm_sql(question, csv_path=csv_path, df=df)
     except Exception:
         sql = None
 

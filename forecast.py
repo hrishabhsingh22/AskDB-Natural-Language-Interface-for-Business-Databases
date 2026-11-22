@@ -3,9 +3,16 @@ import pandas as pd
 
 
 def monthly_sales_series(df):
+    if df is None or df.empty or "date" not in df.columns or "amount" not in df.columns:
+        return pd.DataFrame(columns=["month", "amount"])
+
+    valid_dates = df.dropna(subset=["date"])
+    if valid_dates.empty:
+        return pd.DataFrame(columns=["month", "amount"])
+
     monthly_sales = (
-        df.dropna(subset=["date"])
-        .assign(month=df["date"].dt.to_period("M"))
+        valid_dates
+        .assign(month=valid_dates["date"].dt.to_period("M"))
         .groupby("month", as_index=False)["amount"]
         .sum()
         .sort_values("month")
@@ -22,6 +29,7 @@ def forecast_next_month_sales(df):
             "forecast_month": None,
             "predicted_sales": None,
             "history": monthly_sales,
+            "chart_data": pd.DataFrame(columns=["month", "amount", "series"]),
         }
 
     month_periods = pd.PeriodIndex(monthly_sales["month"], freq="M")
