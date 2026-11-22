@@ -643,8 +643,8 @@ def render_ask_dataset(dataset_df, csv_path):
                 st.line_chart(chart_df)
             return
 
-        sql = generate_sql(question, csv_path=csv_path, df=dataset_df)
-        result = run_query(sql, csv_path=csv_path, df=dataset_df)
+        sql = generate_sql(question, df=dataset_df, csv_path=csv_path)
+        result = run_query(sql, df=dataset_df, csv_path=csv_path)
 
         st.markdown(
             """

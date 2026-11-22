@@ -335,12 +335,29 @@ LIMIT 100
     return None
 
 
-def llm_sql(question, csv_path=None, df=None):
+def llm_sql(question, df=None, csv_path=None, *args, **kwargs):
     if client is None:
         return None
 
+    if df is None and args:
+        first_arg = args[0]
+        if isinstance(first_arg, (str, os.PathLike)):
+            csv_path = first_arg
+        else:
+            df = first_arg
+    elif isinstance(df, (str, os.PathLike)):
+        csv_path = df
+        df = None
+
+    if df is None and "dataset_df" in kwargs:
+        df = kwargs["dataset_df"]
+
     if df is None:
-        df, _, _ = load_dataset(csv_path)
+        try:
+            df, _, _ = load_dataset(csv_path)
+        except Exception:
+            return None
+
     schema_text = get_schema_text(df)
 
     response = client.chat.completions.create(
@@ -371,7 +388,27 @@ def llm_sql(question, csv_path=None, df=None):
     return clean_sql(response.choices[0].message.content)
 
 
-def generate_sql(question, csv_path=None, df=None):
+def generate_sql(question, df=None, csv_path=None, *args, **kwargs):
+    # Support positional second argument being either a DataFrame or a path string
+    if df is None and args:
+        first_arg = args[0]
+        if isinstance(first_arg, (str, os.PathLike)):
+            csv_path = first_arg
+        else:
+            df = first_arg
+    elif isinstance(df, (str, os.PathLike)):
+        csv_path = df
+        df = None
+
+    if df is None and "dataset_df" in kwargs:
+        df = kwargs["dataset_df"]
+
+    if csv_path is None:
+        if "csv_path" in kwargs:
+            csv_path = kwargs["csv_path"]
+        elif "csv_source" in kwargs and isinstance(kwargs["csv_source"], (str, os.PathLike)):
+            csv_path = kwargs["csv_source"]
+
     intent = detect_intent(question)
     if intent != "UNKNOWN":
         return rule_sql(intent)
@@ -381,7 +418,7 @@ def generate_sql(question, csv_path=None, df=None):
         return heuristic_sql
 
     try:
-        sql = llm_sql(question, csv_path=csv_path, df=df)
+        sql = llm_sql(question, df=df, csv_path=csv_path)
     except Exception:
         sql = None
 
