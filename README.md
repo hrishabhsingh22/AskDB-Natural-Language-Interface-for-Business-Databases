@@ -35,7 +35,7 @@ This project is configured to work with `Amazon Sale Report.csv`.
 By default, it loads:
 
 ```bash
-/Users/aryantripathi/Downloads/Amazon Sale Report.csv
+/Users/BEAST/Downloads/Amazon Sale Report.csv
 ```
 
 You can change the dataset path from the Streamlit sidebar.
@@ -45,7 +45,7 @@ You can change the dataset path from the Streamlit sidebar.
 Activate the virtual environment:
 
 ```bash
-source /Users/aryantripathi/Documents/DTI_project/venv/bin/activate
+source /Users/BEAST/Downloads/askdb-sales-analytics-main/.venv/bin/activate
 ```
 
 Install dependencies if needed:
@@ -63,7 +63,7 @@ GROQ_API_KEY=your_api_key_here
 ## Run the App
 
 ```bash
-streamlit run /Users/aryantripathi/Documents/DTI_project/streamlit_app.py
+streamlit run /Users/BEAST/Downloads/askdb-sales-analytics-main/streamlit_app.py
 ```
 
 Open the local URL shown in the terminal, usually:
